@@ -6,7 +6,7 @@ export class ParcourState extends Schema {
   currentColor: number = 0;
 
   @type("number")
-  phase: number = 0;  // 
+  phase: number = 0; 
 
   @type("number")
   nextChangeAt: number = 0;

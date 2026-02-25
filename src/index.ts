@@ -12,6 +12,22 @@ import { listen } from "@colyseus/tools";
 
 // Import Colyseus config
 import app from "./app.config";
+import { logger, serializeUnknownError } from "./logger";
 
 // Create and listen on 2567 (or PORT environment variable.)
-listen(app);
+process.on("unhandledRejection", (reason) => {
+	logger.error("Unhandled promise rejection", { reason: serializeUnknownError(reason) });
+});
+
+process.on("uncaughtException", (error) => {
+	logger.error("Uncaught exception", { error: serializeUnknownError(error) });
+	process.exit(1);
+});
+
+try {
+	listen(app);
+	logger.info("Server listen initialized", { port: process.env.PORT ?? 2567 });
+} catch (error) {
+	logger.error("Failed to initialize server listen", { error: serializeUnknownError(error) });
+	process.exit(1);
+}

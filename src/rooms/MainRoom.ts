@@ -2,31 +2,41 @@ import { Room, Client } from "@colyseus/core";
 import { MainRoomState } from "./schema/MainRoomState";
 import { PlayerState } from "./schema/PlayerState";
 import { ParcourPhase } from "./schema/ParcourPhase";
+import { MathExampleState } from "./schema/MathExampleState";
+import RuCensor from 'russian-bad-word-censor';
 
 const SHOW_COLOR_TIME = 5000;
 const HIDE_TIME = 3000;
+const MATH_BROADCAST_INTERVAL_MS = 5 * 60 * 1000;
 
 // Ball physics constants
 const GRAVITY = -9.81;
-const BALL_RADIUS = 1;
-const BOUNCINESS = 0.8;
-const FRICTION = 0.99;
 const PLAYER_RADIUS = 0.5;
-const BALL_PLAYER_BOUNCINESS = 0.8;
 
 // World bounds
-const BOUNDS_MIN = { x: -11.87, y: 0, z: -7.5 };
-const BOUNDS_MAX = { x: 12.08, y: 10, z: 7.37 };
+const BOUNDS_MAX = { x: 11.81, y: 5, z: 60 };
+const BOUNDS_MIN = { x: -12.16, y: -0.3, z: 45 };
+
+//centrifuge
+export const CENTRIFUGE_SPEED = 30;
+const MAX_CHAT_MESSAGE_LENGTH = 18;
 
 
 export class MainRoom extends Room<MainRoomState> {
   maxClients = 4;
   state = new MainRoomState();
+  touchedStep = new Set<string>();
+  censor = new RuCensor('normal');
 
   onCreate(options: any) {
     this.setupMessageHandlers();
     this.initializeParcour();
     this.initializeBall();
+    this.initializeMathBroadcast();
+    this.initializeStepTouchHandler();
+    this.initializeCentrifuge();
+    this.registerChatHandlers();
+
   }
 
   onJoin(client: Client, options: any) {
@@ -102,6 +112,26 @@ export class MainRoom extends Room<MainRoomState> {
     });
   }
 
+  private registerChatHandlers() {
+    this.onMessage("chat:send", (client, payload) => {
+      this.handleChatMessage(client, payload);
+    });
+  }
+
+  private handleChatMessage(client: Client, payload: any) {
+    const text = this.normalizeChatMessage(payload?.message);
+    if (!text) return;
+    const result = this.censor.replace(text, '*');
+    const playerName = this.state.players.get(client.sessionId)?.name ?? "Player";
+    this.broadcast("chat:new", `${playerName}: ${result}`);
+  }
+
+  private normalizeChatMessage(message: unknown): string {
+    return String(message ?? "")
+      .trim()
+      .slice(0, MAX_CHAT_MESSAGE_LENGTH);
+  }
+
   private handlePlayerPosition(client: Client, message: any) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
@@ -116,6 +146,64 @@ export class MainRoom extends Room<MainRoomState> {
     if (!player) return;
 
     player.rotY = yaw;
+  }
+
+  // -------------------------------
+  // MATH BROADCAST
+  // -------------------------------
+
+  private initializeMathBroadcast() {
+    // Сразу генерируем первый пример
+    this.updateMathState();
+    // Затем обновляем по интервалу
+    this.clock.setInterval(() => {
+      this.updateMathState();
+    }, MATH_BROADCAST_INTERVAL_MS);
+  }
+
+  private updateMathState() {
+    const examples = Array.from({ length: 5 }, () => this.createMathExample());
+    const mathState = this.state.math;
+    mathState.examples.clear();
+    examples.forEach((example) => mathState.examples.push(example));
+    mathState.generatedAt = Date.now();
+  }
+
+  private createMathExample() {
+    const op = Math.random() < 0.5 ? "+" : "-";
+    let a = 0;
+    let b = 0;
+    let result = 0;
+
+    if (op === "+") {
+      do {
+        a = this.randomInt(0, 100);
+        b = this.randomInt(0, 100);
+        result = a + b;
+      } while (result > 100);
+    } else {
+      a = this.randomInt(0, 100);
+      b = this.randomInt(0, a);
+      result = a - b;
+    }
+
+    let wrong = this.randomInt(0, 100);
+    while (wrong === result) {
+      wrong = this.randomInt(0, 100);
+    }
+
+    const correctIndex = this.randomInt(0, 1);
+
+    const example = new MathExampleState();
+    example.expression = `${a}${op}${b}`;
+    example.correct = result;
+    example.wrong = wrong;
+    example.correctIndex = correctIndex;
+    return example;
+  }
+
+  private randomInt(min: number, max: number) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
   // -------------------------------
@@ -139,12 +227,21 @@ export class MainRoom extends Room<MainRoomState> {
   private initializeBall() {
     const ball = this.state.ball;
     // Start ball in the center of the field
+    ball.objectType = "ball";
     ball.x = (BOUNDS_MIN.x + BOUNDS_MAX.x) / 2;
     ball.y = 2; // Start at 2 meters height
     ball.z = (BOUNDS_MIN.z + BOUNDS_MAX.z) / 2;
     ball.vx = 0;
     ball.vy = 0;
     ball.vz = 0;
+    // Set object-specific physical parameters (you can change these per-object)
+    ball.radius = 1;
+    ball.bounciness = 0.8;
+    ball.friction = 0.99;
+    ball.playerBounciness = 0.8;
+    // By default the ball uses the shared world bounds; to change bounds for
+    // this object set `useWorldBounds = false` and fill `boundsMin`/`boundsMax`.
+    ball.useWorldBounds = true;
   }
 
   private updateBall(deltaTime: number) {
@@ -158,11 +255,15 @@ export class MainRoom extends Room<MainRoomState> {
     ball.y += ball.vy * deltaTime;
     ball.z += ball.vz * deltaTime;
 
+    // Determine which bounds to use for this object
+    const objBoundsMin = ball.useWorldBounds ? BOUNDS_MIN : { x: ball.boundsMin.x, y: ball.boundsMin.y, z: ball.boundsMin.z };
+    const objBoundsMax = ball.useWorldBounds ? BOUNDS_MAX : { x: ball.boundsMax.x, y: ball.boundsMax.y, z: ball.boundsMax.z };
+
     // Apply friction only when on ground
-    const isOnGround = ball.y - BALL_RADIUS <= BOUNDS_MIN.y + 0.01;
+    const isOnGround = ball.y - ball.radius <= objBoundsMin.y + 0.01;
     if (isOnGround) {
-      ball.vx *= FRICTION;
-      ball.vz *= FRICTION;
+      ball.vx *= ball.friction;
+      ball.vz *= ball.friction;
     }
 
     // Check collision with players
@@ -187,7 +288,7 @@ export class MainRoom extends Room<MainRoomState> {
       const dy = ball.y - player.y;
       const dz = ball.z - player.z;
       const distSq = dx * dx + dy * dy + dz * dz;
-      const collisionDist = BALL_RADIUS + PLAYER_RADIUS;
+      const collisionDist = ball.radius + PLAYER_RADIUS;
 
       if (distSq < collisionDist * collisionDist && distSq > 0) {
         const dist = Math.sqrt(distSq);
@@ -208,12 +309,12 @@ export class MainRoom extends Room<MainRoomState> {
         const impulseStrength = 6;
         
         if (velAlongNormal < 0) {
-          // Apply bounce
-          ball.vx -= (1 + BALL_PLAYER_BOUNCINESS) * velAlongNormal * nx;
-          ball.vy -= (1 + BALL_PLAYER_BOUNCINESS) * velAlongNormal * ny;
-          ball.vz -= (1 + BALL_PLAYER_BOUNCINESS) * velAlongNormal * nz;
+          // Apply bounce using per-object player bounciness
+          ball.vx -= (1 + ball.playerBounciness) * velAlongNormal * nx;
+          ball.vy -= (1 + ball.playerBounciness) * velAlongNormal * ny;
+          ball.vz -= (1 + ball.playerBounciness) * velAlongNormal * nz;
         }
-        
+
         // Add impulse in direction away from player with upward lift
         ball.vx += nx * impulseStrength;
         ball.vy += Math.abs(ny) * impulseStrength + 3.5; // Always add upward component
@@ -225,36 +326,66 @@ export class MainRoom extends Room<MainRoomState> {
   private checkBallBoundaryCollisions() {
     const ball = this.state.ball;
 
+    // Determine which bounds to use for this object
+    const objBoundsMin = ball.useWorldBounds ? BOUNDS_MIN : { x: ball.boundsMin.x, y: ball.boundsMin.y, z: ball.boundsMin.z };
+    const objBoundsMax = ball.useWorldBounds ? BOUNDS_MAX : { x: ball.boundsMax.x, y: ball.boundsMax.y, z: ball.boundsMax.z };
+
     // Ground collision
-    if (ball.y - BALL_RADIUS <= BOUNDS_MIN.y) {
-      ball.y = BOUNDS_MIN.y + BALL_RADIUS;
-      ball.vy = Math.abs(ball.vy) * BOUNCINESS;
+    if (ball.y - ball.radius <= objBoundsMin.y) {
+      ball.y = objBoundsMin.y + ball.radius;
+      ball.vy = Math.abs(ball.vy) * ball.bounciness;
     }
 
     // Ceiling collision (top)
-    if (ball.y + BALL_RADIUS > BOUNDS_MAX.y) {
-      ball.y = BOUNDS_MAX.y - BALL_RADIUS;
-      ball.vy = -ball.vy * BOUNCINESS;
+    if (ball.y + ball.radius > objBoundsMax.y) {
+      ball.y = objBoundsMax.y - ball.radius;
+      ball.vy = -ball.vy * ball.bounciness;
     }
 
     // X-axis boundaries
-    if (ball.x - BALL_RADIUS < BOUNDS_MIN.x) {
-      ball.x = BOUNDS_MIN.x + BALL_RADIUS;
-      ball.vx = -ball.vx * BOUNCINESS;
+    if (ball.x - ball.radius < objBoundsMin.x) {
+      ball.x = objBoundsMin.x + ball.radius;
+      ball.vx = -ball.vx * ball.bounciness;
     }
-    if (ball.x + BALL_RADIUS > BOUNDS_MAX.x) {
-      ball.x = BOUNDS_MAX.x - BALL_RADIUS;
-      ball.vx = -ball.vx * BOUNCINESS;
+    if (ball.x + ball.radius > objBoundsMax.x) {
+      ball.x = objBoundsMax.x - ball.radius;
+      ball.vx = -ball.vx * ball.bounciness;
     }
 
     // Z-axis boundaries
-    if (ball.z - BALL_RADIUS < BOUNDS_MIN.z) {
-      ball.z = BOUNDS_MIN.z + BALL_RADIUS;
-      ball.vz = -ball.vz * BOUNCINESS;
+    if (ball.z - ball.radius < objBoundsMin.z) {
+      ball.z = objBoundsMin.z + ball.radius;
+      ball.vz = -ball.vz * ball.bounciness;
     }
-    if (ball.z + BALL_RADIUS > BOUNDS_MAX.z) {
-      ball.z = BOUNDS_MAX.z - BALL_RADIUS;
-      ball.vz = -ball.vz * BOUNCINESS;
+    if (ball.z + ball.radius > objBoundsMax.z) {
+      ball.z = objBoundsMax.z - ball.radius;
+      ball.vz = -ball.vz * ball.bounciness;
     }
+  }
+
+  initializeStepTouchHandler() {
+      this.onMessage("step_touch", (client: Client, data) => {
+      const id = data;
+      if (!id) return;
+
+      //if (this.touchedStep.has(id)) return; // уже исчезает/исчезла
+      this.touchedStep.add(id);
+
+      this.broadcast("step_fade", { id });
+    });
+  }
+
+  initializeCentrifuge() {
+      this.clock.setInterval(() => {
+
+      const degPerSec = CENTRIFUGE_SPEED * 6; // rpm * 360 / 60
+      const deltaSec = this.clock.deltaTime / 1000;
+
+      this.state.centrifugeAngle += degPerSec * deltaSec;
+
+      // держим 0–360
+      this.state.centrifugeAngle %= 360;
+
+    }, 16); // ~60 FPS обновление
   }
 }

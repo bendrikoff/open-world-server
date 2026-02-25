@@ -1,6 +1,8 @@
 import config from "@colyseus/tools";
 import { monitor } from "@colyseus/monitor";
 import { playground } from "@colyseus/playground";
+import type { NextFunction, Request, Response } from "express";
+import { logger, serializeUnknownError } from "./logger";
 
 /**
  * Import your Room files
@@ -14,6 +16,7 @@ export default config({
          * Define your room handlers:
          */
         gameServer.define('MainRoom', MainRoom);
+        logger.info("Game server initialized");
 
     },
 
@@ -40,6 +43,21 @@ export default config({
          * Read more: https://docs.colyseus.io/tools/monitor/#restrict-access-to-the-panel-using-a-password
          */
         app.use("/monitor", monitor());
+
+        app.use((error: unknown, req: Request, res: Response, next: NextFunction) => {
+            logger.error("Unhandled express error", {
+                method: req.method,
+                path: req.originalUrl,
+                error: serializeUnknownError(error),
+            });
+
+            if (res.headersSent) {
+                next(error);
+                return;
+            }
+
+            res.status(500).json({ error: "Internal server error" });
+        });
     },
 
 
@@ -47,5 +65,6 @@ export default config({
         /**
          * Before before gameServer.listen() is called.
          */
+        logger.info("Server is about to start listening");
     }
 });
