@@ -6,7 +6,9 @@ DOMAIN="h4lw4.ru"
 CERT_PATH="/etc/letsencrypt/live/$DOMAIN"
 
 if [ ! -f "$CERT_PATH/fullchain.pem" ]; then
-    echo "==> No SSL certificate found. Generating temporary self-signed cert..."
+    echo "==> No SSL certificate found. Installing openssl..."
+    apk add --no-cache openssl
+    echo "==> Generating temporary self-signed cert..."
     mkdir -p "$CERT_PATH"
     openssl req -x509 -nodes -days 7 \
         -newkey rsa:2048 \
