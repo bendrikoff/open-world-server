@@ -10,6 +10,19 @@ This project has been created using [⚔️ `create-colyseus-app`](https://githu
 npm start
 ```
 
+## Docker
+
+```bash
+docker compose up --build
+```
+
+Server will be available on port `2567`.
+
+## Logging
+
+- Server logs are written to daily files in `logs/server-YYYY-MM-DD.log`.
+- Unhandled Express errors, `unhandledRejection`, and `uncaughtException` are logged automatically.
+
 ## Structure
 
 - `index.ts`: main entry point, register an empty room handler and attach [`@colyseus/monitor`](https://github.com/colyseus/colyseus-monitor)
