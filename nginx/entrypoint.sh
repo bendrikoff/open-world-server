@@ -1,8 +1,12 @@
 #!/bin/sh
 # ============================================================
 # init-letsencrypt.sh
-# Run this ONCE on the server to obtain the SSL certificate.
-# Make sure port 80 is free and DNS for h4lw4.ru points to this server.
+# Run this ONCE on the server to replace the temporary self-signed
+# certificate with a real Let's Encrypt certificate.
+#
+# Prerequisites:
+#   - DNS A-record for h4lw4.ru -> 51.250.19.14
+#   - docker compose is running (docker compose up -d)
 #
 # Usage:
 #   chmod +x nginx/init-letsencrypt.sh
@@ -14,24 +18,24 @@ EMAIL="admin@h4lw4.ru"  # Change to your real email
 
 set -e
 
-echo "=== Step 1: Stopping any running containers ==="
-docker compose down 2>/dev/null || true
+echo "=== Step 1: Removing temporary self-signed certificate ==="
+rm -rf certbot/conf/live/$DOMAIN
+rm -rf certbot/conf/archive/$DOMAIN
+rm -rf certbot/conf/renewal/$DOMAIN.conf
 
-echo "=== Step 2: Obtaining certificate via standalone mode ==="
-mkdir -p certbot/conf certbot/www
-docker run --rm \
-    -p 80:80 \
-    -v "$(pwd)/certbot/conf:/etc/letsencrypt" \
-    certbot/certbot certonly \
-    --standalone \
+echo "=== Step 2: Requesting real certificate from Let's Encrypt ==="
+docker compose run --rm certbot certonly \
+    --webroot \
+    --webroot-path=/var/www/certbot \
     --email "$EMAIL" \
     --agree-tos \
     --no-eff-email \
+    --force-renewal \
     -d "$DOMAIN"
 
-echo "=== Step 3: Starting all services ==="
-docker compose up -d
+echo "=== Step 3: Reloading Nginx ==="
+docker compose exec nginx nginx -s reload
 
 echo ""
-echo "=== Done! HTTPS is now active at https://$DOMAIN ==="
+echo "=== Done! Real HTTPS certificate is now active at https://$DOMAIN ==="
 echo "Certificate will auto-renew via the certbot container."
