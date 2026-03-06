@@ -5,9 +5,9 @@ import { ParcourPhase } from "./schema/ParcourPhase";
 import { MathExampleState } from "./schema/MathExampleState";
 import RuCensor from 'russian-bad-word-censor';
 
-const SHOW_COLOR_TIME = 5000;
-const HIDE_TIME = 3000;
-const MATH_BROADCAST_INTERVAL_MS = 5 * 60 * 1000;
+const SHOW_COLOR_TIME = 2000;
+const HIDE_TIME = 2000;
+const MATH_BROADCAST_INTERVAL_MS = 2 * 60 * 1000;
 
 // Ball physics constants
 const GRAVITY = -9.81;
@@ -123,7 +123,12 @@ export class MainRoom extends Room<MainRoomState> {
     if (!text) return;
     const result = this.censor.replace(text, '*');
     const playerName = this.state.players.get(client.sessionId)?.name ?? "Player";
-    this.broadcast("chat:new", `${playerName}: ${result}`);
+    //this.broadcast("chat:new", `${playerName}: ${result}`);
+    this.broadcast("chat:new", {
+      sessionId: client.sessionId,
+      nickname: playerName,
+      message: result
+    });
   }
 
   private normalizeChatMessage(message: unknown): string {
@@ -235,7 +240,7 @@ export class MainRoom extends Room<MainRoomState> {
     ball.vy = 0;
     ball.vz = 0;
     // Set object-specific physical parameters (you can change these per-object)
-    ball.radius = 1;
+    ball.radius = 0.7;
     ball.bounciness = 0.8;
     ball.friction = 0.99;
     ball.playerBounciness = 0.8;
