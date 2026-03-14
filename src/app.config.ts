@@ -1,5 +1,6 @@
 import config from "@colyseus/tools";
 import { monitor } from "@colyseus/monitor";
+import basicAuth from "express-basic-auth";
 import { playground } from "@colyseus/playground";
 import type { NextFunction, Request, Response } from "express";
 import { logger, serializeUnknownError } from "./logger";
@@ -42,7 +43,15 @@ export default config({
          * It is recommended to protect this route with a password
          * Read more: https://docs.colyseus.io/tools/monitor/#restrict-access-to-the-panel-using-a-password
          */
-        app.use("/monitor", monitor());
+        const monitorUser = process.env.MONITOR_USER || "admin";
+        const monitorPassword = process.env.MONITOR_PASSWORD || "admin";
+        const basicAuthMiddleware = basicAuth({
+            users: {
+                [monitorUser]: monitorPassword,
+            },
+            challenge: true
+        });
+        app.use("/monitor", basicAuthMiddleware, monitor());
 
         app.use((error: unknown, req: Request, res: Response, next: NextFunction) => {
             logger.error("Unhandled express error", {

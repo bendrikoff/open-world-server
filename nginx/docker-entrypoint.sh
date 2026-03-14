@@ -5,14 +5,7 @@ DOMAIN="h4lw4.ru"
 EMAIL="admin@h4lw4.ru"
 CERT_PATH="/etc/letsencrypt/live/$DOMAIN"
 
-# --- Generate .htpasswd from environment variables ---
-if [ -n "$MONITOR_USER" ] && [ -n "$MONITOR_PASSWORD" ]; then
-    HASH=$(printf '%s' "$MONITOR_PASSWORD" | openssl dgst -sha1 -binary | openssl base64)
-    echo "${MONITOR_USER}:{SHA}${HASH}" > /etc/nginx/.htpasswd
-    echo "==> .htpasswd generated for user: $MONITOR_USER"
-else
-    echo "==> WARNING: MONITOR_USER / MONITOR_PASSWORD not set, /monitor will be unprotected"
-fi
+
 
 if [ ! -f "$CERT_PATH/fullchain.pem" ]; then
     echo "==> No SSL certificate found. Installing certbot & openssl..."
