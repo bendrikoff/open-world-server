@@ -23,7 +23,7 @@ const MAX_CHAT_MESSAGE_LENGTH = 18;
 
 
 export class MainRoom extends Room<MainRoomState> {
-  maxClients = 4;
+  maxClients = 100;
   state = new MainRoomState();
   touchedStep = new Set<string>();
   censor = new RuCensor('normal');
