@@ -19,7 +19,7 @@ const BOUNDS_MIN = { x: -12.16, y: -0.3, z: 45 };
 
 //centrifuge
 export const CENTRIFUGE_SPEED = 30;
-const MAX_CHAT_MESSAGE_LENGTH = 18;
+const MAX_CHAT_MESSAGE_LENGTH = 54;
 
 
 export class MainRoom extends Room<MainRoomState> {
