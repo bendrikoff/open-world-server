@@ -36,13 +36,16 @@ export class MainRoom extends Room<MainRoomState> {
     this.initializeStepTouchHandler();
     this.initializeCentrifuge();
     this.registerChatHandlers();
-
+    
   }
 
   onJoin(client: Client, options: any) {
     const player = new PlayerState();
     player.appearance = options.appearance;
-    player.name = options.player_name;
+    player.name = this.censor.replace(options.player_name, '*');
+    client.send("server_time", {
+      serverTime: Date.now()
+    });
 
     this.state.players.set(client.sessionId, player);
     console.log(client.sessionId, "joined!");
