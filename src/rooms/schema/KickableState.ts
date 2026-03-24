@@ -20,10 +20,15 @@ export class KickableState extends Schema {
     @type("number") vy: number = 0;
     @type("number") vz: number = 0;
 
-    // Angular velocity (for rotation)
+    // Accumulated rotation angles (radians)
     @type("number") rotX: number = 0;
     @type("number") rotY: number = 0;
     @type("number") rotZ: number = 0;
+
+    // Angular velocity (rad/s) – clients can use this for interpolation
+    @type("number") avx: number = 0;
+    @type("number") avy: number = 0;
+    @type("number") avz: number = 0;
 
     // Physical parameters (configurable per-object)
     @type("number") radius: number = 1;
