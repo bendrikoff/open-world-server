@@ -4,6 +4,7 @@ import { PlayerState } from "./schema/PlayerState";
 import { ParcourPhase } from "./schema/ParcourPhase";
 import { MathExampleState } from "./schema/MathExampleState";
 import RuCensor from 'russian-bad-word-censor';
+import { registerChat } from "../services/chat";
 
 const SHOW_COLOR_TIME = 2000;
 const HIDE_TIME = 2000;
@@ -32,7 +33,6 @@ const BOUNDS_MIN = { x: -12.16, y: -0.3, z: 45 };
 
 //centrifuge
 export const CENTRIFUGE_SPEED = 30;
-const MAX_CHAT_MESSAGE_LENGTH = 60;
 
 
 export class MainRoom extends Room<MainRoomState> {
@@ -52,7 +52,7 @@ export class MainRoom extends Room<MainRoomState> {
     this.initializeMathBroadcast();
     this.initializeStepTouchHandler();
     this.initializeCentrifuge();
-    this.registerChatHandlers();
+    registerChat(this);
     
   }
 
@@ -61,7 +61,8 @@ export class MainRoom extends Room<MainRoomState> {
     player.appearance = options.appearance;
     player.name = this.censor.replace(options.player_name, '*');
     client.send("server_time", {
-      serverTime: Date.now()
+      //serverTime: Date.now()
+      serverTime: new Date("2026-05-24T12:00:00Z").getTime()
     });
 
     this.state.players.set(client.sessionId, player);
@@ -137,31 +138,6 @@ export class MainRoom extends Room<MainRoomState> {
     this.onMessage("rotate", (client, yaw: number) => {
       this.handlePlayerRotation(client, yaw);
     });
-  }
-
-  private registerChatHandlers() {
-    this.onMessage("chat:send", (client, payload) => {
-      this.handleChatMessage(client, payload);
-    });
-  }
-
-  private handleChatMessage(client: Client, payload: any) {
-    const text = this.normalizeChatMessage(payload?.message);
-    if (!text) return;
-    const result = this.censor.replace(text, '*');
-    const playerName = this.state.players.get(client.sessionId)?.name ?? "Player";
-    //this.broadcast("chat:new", `${playerName}: ${result}`);
-    this.broadcast("chat:new", {
-      sessionId: client.sessionId,
-      nickname: playerName,
-      message: result
-    });
-  }
-
-  private normalizeChatMessage(message: unknown): string {
-    return String(message ?? "")
-      .trim()
-      .slice(0, MAX_CHAT_MESSAGE_LENGTH);
   }
 
   private handlePlayerPosition(client: Client, message: any) {

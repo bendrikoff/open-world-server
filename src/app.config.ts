@@ -9,6 +9,9 @@ import { logger, serializeUnknownError } from "./logger";
  * Import your Room files
  */
 import { MainRoom } from "./rooms/MainRoom";
+import { KingRoom } from "./rooms/KingRoom";
+import { SquidDollRoom } from "./rooms/SquidDollRoom";
+import { MegaObbyRoom } from "./rooms/MegaObbyRoom";
 
 export default config({
 
@@ -17,6 +20,9 @@ export default config({
          * Define your room handlers:
          */
         gameServer.define('MainRoom', MainRoom);
+        gameServer.define('KingRoom', KingRoom);
+        gameServer.define('SquidDollRoom', SquidDollRoom);
+        gameServer.define('MegaObbyRoom', MegaObbyRoom);
         logger.info("Game server initialized");
 
     },
