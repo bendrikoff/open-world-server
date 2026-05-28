@@ -7,6 +7,7 @@ import {
     PlayerJoinOptions,
     storeClientPlatformIdentity,
 } from "../services/platformIdentity";
+import { normalizePlayerName, sanitizeRichText } from "../services/userText";
 
 export class MegaObbyRoom extends Room<MegaObbyRoomState> {
     maxClients = 20;
@@ -22,7 +23,7 @@ export class MegaObbyRoom extends Room<MegaObbyRoomState> {
 
         const player = new PlayerState();
         player.appearance = options.appearance;
-        player.name = options.player_name ?? "Player";
+        player.name = sanitizeRichText(normalizePlayerName(options.player_name));
 
         this.state.players.set(client.sessionId, player);
         console.log(client.sessionId, "joined MegaObbyRoom!");

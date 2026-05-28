@@ -10,6 +10,7 @@ import {
   PlayerJoinOptions,
   storeClientPlatformIdentity,
 } from "../services/platformIdentity";
+import { normalizePlayerName, sanitizeRichText } from "../services/userText";
 
 const SHOW_COLOR_TIME = 2000;
 const HIDE_TIME = 2000;
@@ -66,7 +67,9 @@ export class MainRoom extends Room<MainRoomState> {
 
     const player = new PlayerState();
     player.appearance = options.appearance;
-    player.name = this.censor.replace(options.player_name ?? "Player", '*');
+    player.name = sanitizeRichText(
+      this.censor.replace(normalizePlayerName(options.player_name), "*"),
+    );
     client.send("server_time", {
       //serverTime: Date.now()
       serverTime: new Date("2026-05-24T12:00:00Z").getTime()

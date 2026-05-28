@@ -2,6 +2,12 @@ import { Room, Client } from "@colyseus/core";
 import { MapSchema } from "@colyseus/schema";
 import { PlayerState } from "../rooms/schema/PlayerState";
 import RuCensor from "russian-bad-word-censor";
+import {
+    DEFAULT_PLAYER_NAME,
+    normalizeChatMessage as normalizeChatMessageInput,
+    normalizePlayerName,
+    sanitizeRichText,
+} from "./userText";
 
 const MAX_CHAT_MESSAGE_LENGTH = 60;
 
@@ -20,20 +26,19 @@ export function registerChat(room: Room<ChatRoomState>) {
         const text = normalizeChatMessage(payload?.message);
         if (!text) return;
 
-        const result = censor.replace(text, "*");
+        const result = sanitizeRichText(censor.replace(text, "*"));
         const playerName =
-            room.state.players.get(client.sessionId)?.name ?? "Player";
+            room.state.players.get(client.sessionId)?.name ?? DEFAULT_PLAYER_NAME;
 
         room.broadcast("chat:new", {
             sessionId: client.sessionId,
-            nickname: playerName,
+            nickname: sanitizeRichText(normalizePlayerName(playerName)),
             message: result,
+            sentAtUtcMs: Date.now(),
         });
     });
 }
 
 function normalizeChatMessage(message: unknown): string {
-    return String(message ?? "")
-        .trim()
-        .slice(0, MAX_CHAT_MESSAGE_LENGTH);
+    return normalizeChatMessageInput(message, MAX_CHAT_MESSAGE_LENGTH);
 }
