@@ -3,6 +3,11 @@ import { KingRoomState } from "./schema/KingRoomState";
 import { PlayerState } from "./schema/PlayerState";
 import { StoneState } from "./schema/StoneState";
 import { registerChat } from "../services/chat";
+import {
+    clearClientPlatformIdentity,
+    PlayerJoinOptions,
+    storeClientPlatformIdentity,
+} from "../services/platformIdentity";
 
 // Stone physics constants
 const GRAVITY = 9.81;
@@ -52,7 +57,9 @@ export class KingRoom extends Room<KingRoomState> {
         registerChat(this);
     }
 
-    onJoin(client: Client, options: any) {
+    onJoin(client: Client, options: PlayerJoinOptions) {
+        storeClientPlatformIdentity(client, options);
+
         const player = new PlayerState();
         player.appearance = options.appearance;
         player.name = options.player_name ?? "Player";
@@ -62,6 +69,7 @@ export class KingRoom extends Room<KingRoomState> {
     }
 
     onLeave(client: Client) {
+        clearClientPlatformIdentity(client);
         this.state.players.delete(client.sessionId);
         console.log(client.sessionId, "left KingRoom!");
     }

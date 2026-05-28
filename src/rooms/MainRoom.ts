@@ -5,6 +5,11 @@ import { ParcourPhase } from "./schema/ParcourPhase";
 import { MathExampleState } from "./schema/MathExampleState";
 import RuCensor from 'russian-bad-word-censor';
 import { registerChat } from "../services/chat";
+import {
+  clearClientPlatformIdentity,
+  PlayerJoinOptions,
+  storeClientPlatformIdentity,
+} from "../services/platformIdentity";
 
 const SHOW_COLOR_TIME = 2000;
 const HIDE_TIME = 2000;
@@ -56,10 +61,12 @@ export class MainRoom extends Room<MainRoomState> {
     
   }
 
-  onJoin(client: Client, options: any) {
+  onJoin(client: Client, options: PlayerJoinOptions) {
+    storeClientPlatformIdentity(client, options);
+
     const player = new PlayerState();
     player.appearance = options.appearance;
-    player.name = this.censor.replace(options.player_name, '*');
+    player.name = this.censor.replace(options.player_name ?? "Player", '*');
     client.send("server_time", {
       //serverTime: Date.now()
       serverTime: new Date("2026-05-24T12:00:00Z").getTime()
@@ -70,6 +77,7 @@ export class MainRoom extends Room<MainRoomState> {
   }
 
   onLeave(client: Client) {
+    clearClientPlatformIdentity(client);
     this.state.players.delete(client.sessionId);
     this.prevPlayerPos.delete(client.sessionId);
     this.playerVelocities.delete(client.sessionId);

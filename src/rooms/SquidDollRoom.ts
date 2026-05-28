@@ -2,6 +2,11 @@ import { Room, Client } from "@colyseus/core";
 import { SquidDollRoomState } from "./schema/SquidDollRoomState";
 import { PlayerState } from "./schema/PlayerState";
 import { registerChat } from "../services/chat";
+import {
+    clearClientPlatformIdentity,
+    PlayerJoinOptions,
+    storeClientPlatformIdentity,
+} from "../services/platformIdentity";
 
 const COUNTDOWN_MAX = 180;
 const PHASE_DURATION_SEC = 3;
@@ -27,7 +32,9 @@ export class SquidDollRoom extends Room<SquidDollRoomState> {
         }, TICK_INTERVAL_MS);
     }
 
-    onJoin(client: Client, options: any) {
+    onJoin(client: Client, options: PlayerJoinOptions) {
+        storeClientPlatformIdentity(client, options);
+
         const player = new PlayerState();
         player.appearance = options.appearance;
         player.name = options.player_name ?? "Player";
@@ -37,6 +44,7 @@ export class SquidDollRoom extends Room<SquidDollRoomState> {
     }
 
     onLeave(client: Client) {
+        clearClientPlatformIdentity(client);
         this.state.players.delete(client.sessionId);
         console.log(client.sessionId, "left SquidDollRoom!");
     }
