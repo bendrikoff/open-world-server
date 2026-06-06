@@ -149,6 +149,13 @@ export class MainRoom extends Room<MainRoomState> {
     this.onMessage("rotate", (client, yaw: number) => {
       this.handlePlayerRotation(client, yaw);
     });
+
+    this.onMessage("appearance", (client, appearance: string) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || typeof appearance !== "string") return;
+
+      player.appearance = appearance;
+    });
   }
 
   private handlePlayerPosition(client: Client, message: any) {

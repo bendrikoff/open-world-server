@@ -68,6 +68,12 @@ export class SquidDollRoom extends Room<SquidDollRoomState> {
             if (!player) return;
             player.rotY = yaw;
         });
+
+        this.onMessage("appearance", (client, appearance: string) => {
+            const player = this.state.players.get(client.sessionId);
+            if (!player || typeof appearance !== "string") return;
+            player.appearance = appearance;
+        });
     }
 
     private tick(dt: number) {
