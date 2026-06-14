@@ -4,6 +4,12 @@ on:
   push:
     branches: [main, master]
   workflow_dispatch:
+    inputs:
+      force_renew_certificate:
+        description: "Force renew Let's Encrypt certificate"
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   deploy:
@@ -28,6 +34,32 @@ jobs:
 
       - name: Build and start containers
         run: docker compose up --build -d
+
+      - name: Renew SSL certificate and reload nginx
+        env:
+          FORCE_RENEW_CERTIFICATE: ${{ github.event_name == 'workflow_dispatch' && inputs.force_renew_certificate || false }}
+        run: |
+          sleep 5
+          if [ "$FORCE_RENEW_CERTIFICATE" = "true" ]; then
+            docker compose run --rm --entrypoint certbot certbot certonly \
+              --webroot \
+              -w /var/www/certbot \
+              --cert-name h4lw4.ru \
+              -d h4lw4.ru \
+              --email admin@h4lw4.ru \
+              --agree-tos \
+              --no-eff-email \
+              --force-renewal \
+              --non-interactive
+          else
+            docker compose run --rm --entrypoint certbot certbot renew \
+              --webroot \
+              -w /var/www/certbot \
+              --preferred-challenges http \
+              --non-interactive
+          fi
+
+          docker compose exec -T nginx nginx -s reload
 
       - name: Show running containers
         run: docker ps
