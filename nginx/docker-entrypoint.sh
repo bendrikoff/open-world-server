@@ -4,6 +4,31 @@
 DOMAIN="h4lw4.ru"
 EMAIL="admin@h4lw4.ru"
 CERT_PATH="/etc/letsencrypt/live/$DOMAIN"
+CERT_RELOAD_INTERVAL_SECONDS="${CERT_RELOAD_INTERVAL_SECONDS:-300}"
+
+get_cert_mtime() {
+    if [ -f "$CERT_PATH/fullchain.pem" ]; then
+        stat -c %Y "$CERT_PATH/fullchain.pem" 2>/dev/null || echo ""
+    else
+        echo ""
+    fi
+}
+
+watch_certificate_changes() {
+    last_mtime="$(get_cert_mtime)"
+
+    while true; do
+        sleep "$CERT_RELOAD_INTERVAL_SECONDS"
+        current_mtime="$(get_cert_mtime)"
+
+        if [ -n "$last_mtime" ] && [ -n "$current_mtime" ] && [ "$current_mtime" != "$last_mtime" ]; then
+            echo "==> SSL certificate changed. Reloading nginx..."
+            nginx -s reload || echo "==> Failed to reload nginx after certificate change."
+        fi
+
+        last_mtime="$current_mtime"
+    done
+}
 
 
 
@@ -33,4 +58,5 @@ if [ ! -f "$CERT_PATH/fullchain.pem" ]; then
     fi
 fi
 
+watch_certificate_changes &
 exec nginx -g "daemon off;"
