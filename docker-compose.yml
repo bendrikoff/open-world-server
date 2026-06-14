@@ -8,6 +8,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 2567
+      COLYSEUS_SEAT_RESERVATION_TIME: ${COLYSEUS_SEAT_RESERVATION_TIME:-60}
       MONITOR_USER: ${MONITOR_USER}
       MONITOR_PASSWORD: ${MONITOR_PASSWORD}
     volumes:
